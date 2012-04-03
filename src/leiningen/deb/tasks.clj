@@ -1,5 +1,6 @@
 (ns leiningen.deb.tasks
-  (:require [lancet.core :as lancet])
+  (:require [lancet.core :as lancet]
+            [clojure.java.io :as io])
   (:import (com.googlecode.ant_deb_task Deb$Description)))
 
 (lancet/define-ant-type description com.googlecode.ant_deb_task.Deb$Description)
@@ -35,10 +36,11 @@
 (.addTaskDefinition lancet/ant-project "deb" com.googlecode.ant_deb_task.Deb)
 
 (defn deb-task
-  [description props & filesets]
+  [project props filesets]
   (let [task (lancet/instantiate-task lancet/ant-project "deb" props)]
     (doseq [fileset filesets]
       (.add task fileset))
-    (.addDescription task (lancet/coerce  Deb$Description description))
+    (.setToDir task (io/file (or (:target-path project) (:target-dir project))))
+    (.addDescription task (lancet/coerce Deb$Description (:description project)))
     (.execute task)
     task))
