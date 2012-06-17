@@ -1,38 +1,46 @@
 (ns leiningen.deb.tasks
-  (:use lancet)
-  (:require [clojure.contrib.string :as s]))
+  (:require [lancet.core :as lancet]
+            [clojure.java.io :as io])
+  (:import (com.googlecode.ant_deb_task Deb$Description)))
 
-(define-ant-type description com.googlecode.ant_deb_task.Deb$Description)
-(define-ant-type changelog com.googlecode.ant_deb_task.Deb$Changelog)
-(define-ant-type maintainer com.googlecode.ant_deb_task.Deb$Maintainer)
-(define-ant-type priority com.googlecode.ant_deb_task.Deb$Priority)
-(define-ant-type section com.googlecode.ant_deb_task.Deb$Section)
-(define-ant-type version com.googlecode.ant_deb_task.Deb$Version)
-(define-ant-type tarfileset org.apache.tools.ant.types.TarFileSet)
+(lancet/define-ant-type description com.googlecode.ant_deb_task.Deb$Description)
+(lancet/define-ant-type changelog com.googlecode.ant_deb_task.Deb$Changelog)
+(lancet/define-ant-type maintainer com.googlecode.ant_deb_task.Deb$Maintainer)
+(lancet/define-ant-type priority com.googlecode.ant_deb_task.Deb$Priority)
+(lancet/define-ant-type section com.googlecode.ant_deb_task.Deb$Section)
+(lancet/define-ant-type tarfileset org.apache.tools.ant.types.TarFileSet)
 
-(defmethod coerce [Integer/TYPE Integer] [_ i] (int i))
-(defmethod coerce [String com.googlecode.ant_deb_task.Deb$Version]
+;; Lancet reflection magic is hopelessly confused by int/long differences
+(defn version [{:keys [epoch upstream debian]}]
+  (doto (com.googlecode.ant_deb_task.Deb$Version.)
+    (.setEpoch epoch)
+    (.setUpstream upstream)
+    (.setDebian debian)))
+
+(defmethod lancet/coerce [Integer/TYPE Integer] [_ i] (int i))
+(defmethod lancet/coerce [Integer/TYPE Long] [_ i] (int i))
+
+(defmethod lancet/coerce [String com.googlecode.ant_deb_task.Deb$Version]
   [_ v] (str v))
-(defmethod coerce [String com.googlecode.ant_deb_task.Deb$Maintainer]
+(defmethod lancet/coerce [String com.googlecode.ant_deb_task.Deb$Maintainer]
   [_ m] (str m))
-(defmethod coerce [com.googlecode.ant_deb_task.Deb$Section String]
+(defmethod lancet/coerce [com.googlecode.ant_deb_task.Deb$Section String]
   [_ s] (section {:value s}))
-(defmethod coerce [com.googlecode.ant_deb_task.Deb$Priority String]
+(defmethod lancet/coerce [com.googlecode.ant_deb_task.Deb$Priority String]
   [_ s] (priority {:value s}))
 
-(defmethod coerce [com.googlecode.ant_deb_task.Deb$Description String]
-  [_ s] (doto (description {:synopsis (first (s/split-lines s))})
+(defmethod lancet/coerce [com.googlecode.ant_deb_task.Deb$Description String]
+  [_ s] (doto (description {:synopsis (first (.split s "\n"))})
           (.addText s)))
 
-(.addTaskDefinition ant-project "deb" com.googlecode.ant_deb_task.Deb)
+(.addTaskDefinition lancet/ant-project "deb" com.googlecode.ant_deb_task.Deb)
 
 (defn deb-task
-  [description props & filesets]
-  (let [task (instantiate-task ant-project "deb" props)]
+  [project props filesets]
+  (let [task (lancet/instantiate-task lancet/ant-project "deb" props)]
     (doseq [fileset filesets]
       (.add task fileset))
-    (.addDescription task (coerce com.googlecode.ant_deb_task.Deb$Description description))
+    (.setToDir task (io/file (or (:target-path project) (:target-dir project))))
+    (.addDescription task (lancet/coerce Deb$Description (:description project)))
     (.execute task)
-    task) )
-
-
+    task))
