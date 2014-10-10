@@ -1,6 +1,8 @@
 (ns leiningen.deb.tasks
-  (:use lancet)
-  (:require [clojure.contrib.string :as s]))
+  (:use
+      [lancet.core])
+  (:require
+      [clojure.string :as s]))
 
 (define-ant-type description com.googlecode.ant_deb_task.Deb$Description)
 (define-ant-type changelog com.googlecode.ant_deb_task.Deb$Changelog)
@@ -30,9 +32,10 @@
   [description props & filesets]
   (let [task (instantiate-task ant-project "deb" props)]
     (doseq [fileset filesets]
+      (println (type fileset))
       (.add task fileset))
     (.addDescription task (coerce com.googlecode.ant_deb_task.Deb$Description description))
     (.execute task)
-    task) )
+    task))
 
 
